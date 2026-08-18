@@ -1,9 +1,11 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template_string, redirect, url_for, session
 import pickle
 import numpy as np
 import os
 
 app = Flask(__name__)
+# Secret key is required to use Flask sessions for storing data between requests
+app.secret_key = 'super_secret_ai_predictor_key' 
 
 # Load the trained linear model
 MODEL_PATH = 'linear_model.pkl'
@@ -102,14 +104,13 @@ HTML_TEMPLATE = """
             box-sizing: border-box;
         }
 
-        /* 1. FIX: Hide up/down arrows (spinners) on number inputs */
         input[type="number"]::-webkit-inner-spin-button,
         input[type="number"]::-webkit-outer-spin-button {
             -webkit-appearance: none;
             margin: 0;
         }
         input[type="number"] {
-            -moz-appearance: textfield; /* For Firefox */
+            -moz-appearance: textfield; 
         }
 
         input::placeholder {
@@ -123,40 +124,66 @@ HTML_TEMPLATE = """
             transform: translateY(-2px);
         }
 
-        /* 2. FIX: Dropdown styling & colors */
         select option {
-            background-color: #1a2a33; /* Clean dark background */
+            background-color: #1a2a33; 
             color: #ffffff;
             font-size: 1rem;
             padding: 10px;
         }
 
-        button {
-            width: 100%;
-            padding: 16px;
+        /* Flexbox for Buttons side-by-side */
+        .button-group {
+            display: flex;
+            gap: 15px;
             margin-top: 10px;
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            border: none;
-            border-radius: 12px;
-            color: #0f2027; /* Dark text for better contrast on cyan button */
-            font-size: 1.1rem;
-            font-weight: 800;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
             animation: slideUp 0.6s ease-out forwards;
             animation-delay: 0.6s;
             opacity: 0;
         }
 
-        button:hover {
+        .btn-predict, .btn-reset {
+            flex: 1;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            text-decoration: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        .btn-predict {
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            border: none;
+            color: #0f2027; 
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
+        }
+
+        .btn-predict:hover {
             transform: translateY(-3px) scale(1.02);
             box-shadow: 0 8px 25px rgba(79, 172, 254, 0.6);
             color: #ffffff;
         }
         
-        button:active {
+        .btn-predict:active, .btn-reset:active {
             transform: translateY(0) scale(0.98);
+        }
+
+        .btn-reset {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-reset:hover {
+            background: rgba(79, 172, 254, 0.1);
+            transform: translateY(-3px) scale(1.02);
+            color: #ffffff;
         }
 
         .result {
@@ -203,6 +230,7 @@ HTML_TEMPLATE = """
         @media (max-width: 480px) {
             .container { padding: 30px 20px; }
             h2 { font-size: 1.5rem; }
+            .button-group { flex-direction: column; }
         }
     </style>
 </head>
@@ -214,40 +242,46 @@ HTML_TEMPLATE = """
             <div class="error">{{ error_msg }}</div>
         {% endif %}
 
-        <form method="POST">
+        <form method="POST" action="{{ url_for('home') }}">
             <div class="form-group">
                 <label>Hours Studied</label>
-                <input type="number" step="any" name="hours_studied" placeholder="e.g. 5.5" required autocomplete="off">
+                <input type="number" step="any" name="hours_studied" placeholder="e.g. 5.5" required autocomplete="off" value="{{ form_data.get('hours_studied', '') }}">
             </div>
             
             <div class="form-group">
                 <label>Previous Scores</label>
-                <input type="number" step="any" name="previous_scores" placeholder="e.g. 85" required autocomplete="off">
+                <input type="number" step="any" name="previous_scores" placeholder="e.g. 85" required autocomplete="off" value="{{ form_data.get('previous_scores', '') }}">
             </div>
             
             <div class="form-group">
                 <label>Extracurricular Activities</label>
                 <select name="extracurricular" required>
-                    <option value="" disabled selected>Select an option</option>
-                    <option value="1">Yes</option>
-                    <option value="0">No</option>
+                    <option value="" disabled {% if not form_data.get('extracurricular') %}selected{% endif %}>Select an option</option>
+                    <option value="1" {% if form_data.get('extracurricular') == '1' %}selected{% endif %}>Yes</option>
+                    <option value="0" {% if form_data.get('extracurricular') == '0' %}selected{% endif %}>No</option>
                 </select>
             </div>
             
             <div class="form-group">
                 <label>Sleep Hours</label>
-                <input type="number" step="any" name="sleep_hours" placeholder="e.g. 7.5" required autocomplete="off">
+                <input type="number" step="any" name="sleep_hours" placeholder="e.g. 7.5" required autocomplete="off" value="{{ form_data.get('sleep_hours', '') }}">
             </div>
             
             <div class="form-group">
                 <label>Sample Question Papers Practiced</label>
-                <input type="number" step="any" name="papers_practiced" placeholder="e.g. 3" required autocomplete="off">
+                <input type="number" step="any" name="papers_practiced" placeholder="e.g. 3" required autocomplete="off" value="{{ form_data.get('papers_practiced', '') }}">
             </div>
             
-            <button type="submit">Predict Score</button>
+            <div class="button-group">
+                <button type="submit" class="btn-predict">Predict Score</button>
+                {% if prediction %}
+                    <!-- Show Predict More button only if a prediction exists -->
+                    <a href="{{ url_for('reset') }}" class="btn-reset">Predict More</a>
+                {% endif %}
+            </div>
         </form>
 
-        {% if prediction is not none %}
+        {% if prediction %}
         <div class="result">
             🎯 {{ prediction }}
         </div>
@@ -259,7 +293,6 @@ HTML_TEMPLATE = """
 
 @app.route('/', methods=['GET', 'POST'])
 def home():
-    prediction = None
     error_msg = None
     
     if model is None:
@@ -267,31 +300,42 @@ def home():
 
     if request.method == 'POST' and model is not None:
         try:
-            # Extract inputs from the form
+            # 1. Save inputs in session so they don't disappear after submit
+            session['form_data'] = request.form.to_dict()
+            
             hours = float(request.form['hours_studied'])
             prev_scores = float(request.form['previous_scores'])
             extra = float(request.form['extracurricular'])
             sleep = float(request.form['sleep_hours'])
             papers = float(request.form['papers_practiced'])
             
-            # Format inputs as a 2D numpy array
             features = np.array([[hours, prev_scores, extra, sleep, papers]])
-            
-            # Make the prediction
             pred_value = model.predict(features)[0]
             
-            # 3. FIX: Handle Negative values and values above 100
-            # A score shouldn't realistically be below 0 or above 100.
+            # Keep score between 0 and 100
             pred_value = max(0.0, min(100.0, pred_value))
             
-            # Format prediction to 2 decimal places
-            prediction = f"{pred_value:.2f}"
+            # Save the prediction result in session
+            session['prediction'] = f"{pred_value:.2f}"
+            
+            # 2. Redirect back to GET route (This completely fixes the "Confirm Resubmission" issue)
+            return redirect(url_for('home'))
             
         except Exception as e:
             error_msg = f"An error occurred during prediction: {str(e)}"
             
-    return render_template_string(HTML_TEMPLATE, prediction=prediction, error_msg=error_msg)
+    # GET Request: Retrieve data from session if it exists
+    prediction = session.get('prediction')
+    form_data = session.get('form_data', {})
+            
+    return render_template_string(HTML_TEMPLATE, prediction=prediction, form_data=form_data, error_msg=error_msg)
+
+# Route to clear data for "Predict More"
+@app.route('/reset')
+def reset():
+    session.pop('prediction', None)
+    session.pop('form_data', None)
+    return redirect(url_for('home'))
 
 if __name__ == '__main__':
-    # Run the app locally
     app.run(debug=True, host='0.0.0.0', port=5000)
