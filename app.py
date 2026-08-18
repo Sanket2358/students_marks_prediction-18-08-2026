@@ -74,7 +74,6 @@ HTML_TEMPLATE = """
             opacity: 0;
         }
 
-        /* Staggering animations for form groups */
         .form-group:nth-child(1) { animation-delay: 0.1s; }
         .form-group:nth-child(2) { animation-delay: 0.2s; }
         .form-group:nth-child(3) { animation-delay: 0.3s; }
@@ -103,6 +102,16 @@ HTML_TEMPLATE = """
             box-sizing: border-box;
         }
 
+        /* 1. FIX: Hide up/down arrows (spinners) on number inputs */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield; /* For Firefox */
+        }
+
         input::placeholder {
             color: rgba(255, 255, 255, 0.3);
         }
@@ -114,9 +123,12 @@ HTML_TEMPLATE = """
             transform: translateY(-2px);
         }
 
+        /* 2. FIX: Dropdown styling & colors */
         select option {
-            background: #203a43;
-            color: white;
+            background-color: #1a2a33; /* Clean dark background */
+            color: #ffffff;
+            font-size: 1rem;
+            padding: 10px;
         }
 
         button {
@@ -126,7 +138,7 @@ HTML_TEMPLATE = """
             background: linear-gradient(to right, var(--primary), var(--secondary));
             border: none;
             border-radius: 12px;
-            color: white;
+            color: #0f2027; /* Dark text for better contrast on cyan button */
             font-size: 1.1rem;
             font-weight: 800;
             cursor: pointer;
@@ -138,8 +150,9 @@ HTML_TEMPLATE = """
         }
 
         button:hover {
-            transform: translateY(-4px) scale(1.02);
+            transform: translateY(-3px) scale(1.02);
             box-shadow: 0 8px 25px rgba(79, 172, 254, 0.6);
+            color: #ffffff;
         }
         
         button:active {
@@ -157,6 +170,7 @@ HTML_TEMPLATE = """
             border-radius: 12px;
             animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
             color: #fff;
+            box-shadow: inset 0 0 15px rgba(79, 172, 254, 0.1);
             text-shadow: 0 0 10px rgba(79, 172, 254, 0.5);
         }
 
@@ -186,7 +200,6 @@ HTML_TEMPLATE = """
             100% { opacity: 1; transform: scale(1); }
         }
 
-        /* Responsive Design */
         @media (max-width: 480px) {
             .container { padding: 30px 20px; }
             h2 { font-size: 1.5rem; }
@@ -204,31 +217,31 @@ HTML_TEMPLATE = """
         <form method="POST">
             <div class="form-group">
                 <label>Hours Studied</label>
-                <input type="number" step="any" name="hours_studied" placeholder="e.g. 5.5" required>
+                <input type="number" step="any" name="hours_studied" placeholder="e.g. 5.5" required autocomplete="off">
             </div>
             
             <div class="form-group">
                 <label>Previous Scores</label>
-                <input type="number" step="any" name="previous_scores" placeholder="e.g. 85" required>
+                <input type="number" step="any" name="previous_scores" placeholder="e.g. 85" required autocomplete="off">
             </div>
             
             <div class="form-group">
                 <label>Extracurricular Activities</label>
                 <select name="extracurricular" required>
                     <option value="" disabled selected>Select an option</option>
-                    <option value="1">Yes (1)</option>
-                    <option value="0">No (0)</option>
+                    <option value="1">Yes</option>
+                    <option value="0">No</option>
                 </select>
             </div>
             
             <div class="form-group">
                 <label>Sleep Hours</label>
-                <input type="number" step="any" name="sleep_hours" placeholder="e.g. 7.5" required>
+                <input type="number" step="any" name="sleep_hours" placeholder="e.g. 7.5" required autocomplete="off">
             </div>
             
             <div class="form-group">
                 <label>Sample Question Papers Practiced</label>
-                <input type="number" step="any" name="papers_practiced" placeholder="e.g. 3" required>
+                <input type="number" step="any" name="papers_practiced" placeholder="e.g. 3" required autocomplete="off">
             </div>
             
             <button type="submit">Predict Score</button>
@@ -261,11 +274,15 @@ def home():
             sleep = float(request.form['sleep_hours'])
             papers = float(request.form['papers_practiced'])
             
-            # Format inputs as a 2D numpy array [[]]
+            # Format inputs as a 2D numpy array
             features = np.array([[hours, prev_scores, extra, sleep, papers]])
             
             # Make the prediction
             pred_value = model.predict(features)[0]
+            
+            # 3. FIX: Handle Negative values and values above 100
+            # A score shouldn't realistically be below 0 or above 100.
+            pred_value = max(0.0, min(100.0, pred_value))
             
             # Format prediction to 2 decimal places
             prediction = f"{pred_value:.2f}"
