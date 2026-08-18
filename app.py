@@ -25,11 +25,14 @@ HTML_TEMPLATE = """
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #4FACFE;
-            --secondary: #00F2FE;
-            --bg-gradient: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-            --glass-bg: rgba(255, 255, 255, 0.05);
-            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary: #00F2FE;
+            --secondary: #4FACFE;
+            /* Darker, deeper background to make everything pop */
+            --bg-gradient: linear-gradient(135deg, #020617, #0f172a, #020617);
+            /* Slightly more transparent glass for dark mode */
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-highlight: #e0f2fe; /* Crisper white for labels */
         }
         
         body {
@@ -43,19 +46,22 @@ HTML_TEMPLATE = """
             margin: 0;
             padding: 20px;
             box-sizing: border-box;
+            overflow-x: hidden;
         }
 
+        /* Added Floating (Wavy) Animation to the Container */
         .container {
             background: var(--glass-bg);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             padding: 40px;
             border-radius: 24px;
             border: 1px solid var(--glass-border);
-            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
             width: 100%;
             max-width: 480px;
-            animation: fadeIn 1s ease-out forwards;
+            /* Two animations: First fades in, second floats continuously */
+            animation: fadeInContainer 1s ease-out forwards, floatingBox 6s ease-in-out 1s infinite;
         }
 
         h2 {
@@ -68,6 +74,7 @@ HTML_TEMPLATE = """
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             letter-spacing: -0.5px;
+            text-shadow: 0 0 20px rgba(0, 242, 254, 0.2);
         }
 
         .form-group {
@@ -87,7 +94,8 @@ HTML_TEMPLATE = """
             margin-bottom: 8px;
             font-size: 0.9rem;
             font-weight: 600;
-            color: #d1d5db;
+            color: var(--text-highlight);
+            letter-spacing: 0.5px;
         }
 
         input, select {
@@ -95,10 +103,11 @@ HTML_TEMPLATE = """
             padding: 14px;
             border: 1px solid var(--glass-border);
             border-radius: 12px;
-            background: rgba(0, 0, 0, 0.2);
-            color: #ffffff;
+            background: rgba(0, 0, 0, 0.4);
+            color: var(--primary); /* Typing color is neon cyan now */
             font-family: inherit;
             font-size: 1rem;
+            font-weight: 600;
             outline: none;
             transition: all 0.3s ease;
             box-sizing: border-box;
@@ -114,28 +123,32 @@ HTML_TEMPLATE = """
         }
 
         input::placeholder {
-            color: rgba(255, 255, 255, 0.3);
+            color: rgba(255, 255, 255, 0.2);
+            font-weight: 400;
         }
 
         input:focus, select:focus {
-            background: rgba(0, 0, 0, 0.4);
+            background: rgba(0, 0, 0, 0.6);
             border-color: var(--primary);
-            box-shadow: 0 0 15px rgba(79, 172, 254, 0.3);
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.2);
             transform: translateY(-2px);
         }
 
+        select {
+            color: #ffffff;
+        }
+
         select option {
-            background-color: #1a2a33; 
+            background-color: #0f172a; 
             color: #ffffff;
             font-size: 1rem;
             padding: 10px;
         }
 
-        /* Flexbox for Buttons side-by-side */
         .button-group {
             display: flex;
             gap: 15px;
-            margin-top: 10px;
+            margin-top: 15px;
             animation: slideUp 0.6s ease-out forwards;
             animation-delay: 0.6s;
             opacity: 0;
@@ -158,15 +171,15 @@ HTML_TEMPLATE = """
         }
 
         .btn-predict {
-            background: linear-gradient(to right, var(--primary), var(--secondary));
+            background: linear-gradient(to right, var(--secondary), var(--primary));
             border: none;
-            color: #0f2027; 
-            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
+            color: #020617; 
+            box-shadow: 0 4px 20px rgba(0, 242, 254, 0.3);
         }
 
         .btn-predict:hover {
             transform: translateY(-3px) scale(1.02);
-            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.6);
+            box-shadow: 0 8px 30px rgba(0, 242, 254, 0.6);
             color: #ffffff;
         }
         
@@ -175,30 +188,31 @@ HTML_TEMPLATE = """
         }
 
         .btn-reset {
-            background: transparent;
+            background: rgba(0, 242, 254, 0.05);
             border: 2px solid var(--primary);
             color: var(--primary);
         }
 
         .btn-reset:hover {
-            background: rgba(79, 172, 254, 0.1);
+            background: rgba(0, 242, 254, 0.15);
             transform: translateY(-3px) scale(1.02);
             color: #ffffff;
+            box-shadow: 0 4px 20px rgba(0, 242, 254, 0.2);
         }
 
         .result {
             margin-top: 30px;
             text-align: center;
-            font-size: 1.8rem;
+            font-size: 2rem;
             font-weight: 800;
-            background: rgba(79, 172, 254, 0.1);
+            background: rgba(0, 242, 254, 0.1);
             border: 1px solid var(--primary);
             padding: 20px;
             border-radius: 12px;
             animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
             color: #fff;
-            box-shadow: inset 0 0 15px rgba(79, 172, 254, 0.1);
-            text-shadow: 0 0 10px rgba(79, 172, 254, 0.5);
+            box-shadow: inset 0 0 20px rgba(0, 242, 254, 0.1), 0 0 20px rgba(0, 242, 254, 0.2);
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.6);
         }
 
         .error {
@@ -212,9 +226,16 @@ HTML_TEMPLATE = """
         }
 
         /* Animations */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
+        @keyframes fadeInContainer {
+            from { opacity: 0; transform: translateY(40px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Wavy Floating Animation */
+        @keyframes floatingBox {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-12px); }
+            100% { transform: translateY(0px); }
         }
 
         @keyframes slideUp {
@@ -275,7 +296,6 @@ HTML_TEMPLATE = """
             <div class="button-group">
                 <button type="submit" class="btn-predict">Predict Score</button>
                 {% if prediction %}
-                    <!-- Show Predict More button only if a prediction exists -->
                     <a href="{{ url_for('reset') }}" class="btn-reset">Predict More</a>
                 {% endif %}
             </div>
@@ -300,7 +320,7 @@ def home():
 
     if request.method == 'POST' and model is not None:
         try:
-            # 1. Save inputs in session so they don't disappear after submit
+            # Save inputs in session so they don't disappear after submit
             session['form_data'] = request.form.to_dict()
             
             hours = float(request.form['hours_studied'])
@@ -318,7 +338,7 @@ def home():
             # Save the prediction result in session
             session['prediction'] = f"{pred_value:.2f}"
             
-            # 2. Redirect back to GET route (This completely fixes the "Confirm Resubmission" issue)
+            # Redirect back to GET route
             return redirect(url_for('home'))
             
         except Exception as e:
