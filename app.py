@@ -4,7 +4,7 @@ import numpy as np
 import os
 
 app = Flask(__name__)
-# Secret key is required to use Flask sessions for storing data between requests
+# Secret key is required to use Flask sessions
 app.secret_key = 'super_secret_ai_predictor_key' 
 
 # Load the trained linear model
@@ -27,12 +27,10 @@ HTML_TEMPLATE = """
         :root {
             --primary: #00F2FE;
             --secondary: #4FACFE;
-            /* Darker, deeper background to make everything pop */
             --bg-gradient: linear-gradient(135deg, #020617, #0f172a, #020617);
-            /* Slightly more transparent glass for dark mode */
             --glass-bg: rgba(255, 255, 255, 0.03);
             --glass-border: rgba(255, 255, 255, 0.08);
-            --text-highlight: #e0f2fe; /* Crisper white for labels */
+            --text-highlight: #e0f2fe;
         }
         
         body {
@@ -49,7 +47,6 @@ HTML_TEMPLATE = """
             overflow-x: hidden;
         }
 
-        /* Added Floating (Wavy) Animation to the Container */
         .container {
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
@@ -60,14 +57,21 @@ HTML_TEMPLATE = """
             box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
             width: 100%;
             max-width: 480px;
-            /* Two animations: First fades in, second floats continuously */
             animation: fadeInContainer 1s ease-out forwards, floatingBox 6s ease-in-out 1s infinite;
         }
 
+        /* Typing Effect Container */
+        .typing-container {
+            width: max-content;
+            margin: 0 auto 30px auto;
+            overflow: hidden;
+            white-space: nowrap;
+            animation: typing 2.5s steps(30, end);
+            position: relative;
+        }
+
         h2 {
-            text-align: center;
-            margin-top: 0;
-            margin-bottom: 30px;
+            margin: 0;
             font-weight: 800;
             font-size: 1.8rem;
             background: -webkit-linear-gradient(45deg, var(--primary), var(--secondary));
@@ -75,6 +79,19 @@ HTML_TEMPLATE = """
             -webkit-text-fill-color: transparent;
             letter-spacing: -0.5px;
             text-shadow: 0 0 20px rgba(0, 242, 254, 0.2);
+            padding-right: 5px; /* space for cursor */
+        }
+
+        /* Blinking Cursor */
+        .typing-container::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 10%;
+            height: 80%;
+            width: 3px;
+            background-color: var(--primary);
+            animation: blink-caret 0.8s step-end infinite;
         }
 
         .form-group {
@@ -104,7 +121,7 @@ HTML_TEMPLATE = """
             border: 1px solid var(--glass-border);
             border-radius: 12px;
             background: rgba(0, 0, 0, 0.4);
-            color: var(--primary); /* Typing color is neon cyan now */
+            color: var(--primary);
             font-family: inherit;
             font-size: 1rem;
             font-weight: 600;
@@ -134,10 +151,7 @@ HTML_TEMPLATE = """
             transform: translateY(-2px);
         }
 
-        select {
-            color: #ffffff;
-        }
-
+        select { color: #ffffff; }
         select option {
             background-color: #0f172a; 
             color: #ffffff;
@@ -231,7 +245,6 @@ HTML_TEMPLATE = """
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Wavy Floating Animation */
         @keyframes floatingBox {
             0% { transform: translateY(0px); }
             50% { transform: translateY(-12px); }
@@ -248,16 +261,31 @@ HTML_TEMPLATE = """
             100% { opacity: 1; transform: scale(1); }
         }
 
+        @keyframes typing {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+
+        @keyframes blink-caret {
+            from, to { opacity: 0; }
+            50% { opacity: 1; }
+        }
+
         @media (max-width: 480px) {
             .container { padding: 30px 20px; }
-            h2 { font-size: 1.5rem; }
+            .typing-container { max-width: 100%; white-space: normal; animation: none; }
+            .typing-container::after { display: none; }
+            h2 { font-size: 1.5rem; text-align: center; width: 100%; }
             .button-group { flex-direction: column; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>AI Performance Predictor</h2>
+        <!-- Added Typing Container -->
+        <div class="typing-container">
+            <h2>AI Performance Predictor</h2>
+        </div>
         
         {% if error_msg %}
             <div class="error">{{ error_msg }}</div>
@@ -320,7 +348,7 @@ def home():
 
     if request.method == 'POST' and model is not None:
         try:
-            # Save inputs in session so they don't disappear after submit
+            # Save inputs in session before redirecting
             session['form_data'] = request.form.to_dict()
             
             hours = float(request.form['hours_studied'])
@@ -330,29 +358,28 @@ def home():
             papers = float(request.form['papers_practiced'])
             
             features = np.array([[hours, prev_scores, extra, sleep, papers]])
+            
+            # Predict the REAL raw score from your dataset/model
             pred_value = model.predict(features)[0]
             
-            # Keep score between 0 and 100
-            pred_value = max(0.0, min(100.0, pred_value))
-            
-            # Save the prediction result in session
+            # Formatted raw prediction saved in session
             session['prediction'] = f"{pred_value:.2f}"
             
-            # Redirect back to GET route
             return redirect(url_for('home'))
             
         except Exception as e:
             error_msg = f"An error occurred during prediction: {str(e)}"
             
-    # GET Request: Retrieve data from session if it exists
-    prediction = session.get('prediction')
-    form_data = session.get('form_data', {})
+    # GET Request: Use .pop() to get data and instantly delete it from the session
+    # If the user refreshes the page manually, the session will be empty and the form will clear!
+    prediction = session.pop('prediction', None)
+    form_data = session.pop('form_data', {})
             
     return render_template_string(HTML_TEMPLATE, prediction=prediction, form_data=form_data, error_msg=error_msg)
 
-# Route to clear data for "Predict More"
 @app.route('/reset')
 def reset():
+    # Route is just a safety fallback now, pop already clears it
     session.pop('prediction', None)
     session.pop('form_data', None)
     return redirect(url_for('home'))
